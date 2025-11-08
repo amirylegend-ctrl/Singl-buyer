@@ -68,7 +68,7 @@ class Singl_buyer(Plugin):
             button = bw(
                 parent=self._root_widget,
                 icon=gt('tokens3'),
-                position=(self._width - 520, self._height - 560),
+                position=(self._width - 500, self._height - 70),
                 size=(40, 40),
                 color=button_color,
                 on_activate_call=Call(s.show_main_panel)
