@@ -1,4 +1,4 @@
-# Singl_buyer 
+# Singl_buyer V 1.1
 # Copyright 2025
 #کص مادر هرکي اسکي بره و از کد ها استفاده کنه و کپي کنه
 from babase import Plugin, open_url
@@ -52,7 +52,7 @@ class Singl_buyer(Plugin):
         teck(5, s.ear)
  #کص مادر هرکي اسکي بره و از کد ها استفاده کنه و کپي کنه   
     def show_welcome_message(s):
-        push("Power by Singl | @Amiry_11228 | t.me/SinglMod", color=(0, 0.8, 1))
+        push("Power by Singl | @Amiry_11228 | t.me/SinglMod | V:1.1", color=(0, 0.8, 1))
         gs('dingSmall').play()
     
     def setup_ui(s):
@@ -68,11 +68,9 @@ class Singl_buyer(Plugin):
             button = bw(
                 parent=self._root_widget,
                 icon=gt('tokens3'),
-                position=(self._width - 650, self._height - 280),
-                size=(150, 70),
-                label='Singlbuy',
+                position=(self._width - 30, self._height - 280),
+                size=(40, 40),
                 color=button_color,
-                textcolor=text_color,
                 on_activate_call=Call(s.show_main_panel)
             )
             s.ui_button = button
