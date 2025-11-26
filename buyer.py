@@ -1,7 +1,5 @@
-# Singl_buyer V 2.0 + Rejoiner
+# Singl_buyer V 2.0 + Rejoiner + Plugin Manager
 # Copyright 2025
-#کص مادر هرکس از کد ها استفاده کنه کپي کنه ويرايش کنه ((غيرت لطفا))
-#کص مادر هرکس از کد ها استفاده کنه
 from babase import Plugin, open_url
 from bauiv1 import (
     get_special_widget as gsw,
@@ -14,7 +12,8 @@ from bauiv1 import (
     apptimer as teck,
     getsound as gs,
     app as APP,
-    Call,
+    CallPartial,
+    CallStrict,
     checkboxwidget
 )
 from bascenev1 import (
@@ -28,9 +27,9 @@ import re
 import time
 import json
 import os
+import glob
 from datetime import datetime
-#کص مادر هرکس از کد ها استفاده کنه کپي کنه ويرايش کنه ((غيرت لطفا))
-#کص مادر هرکس از کد ها استفاده کنه
+
 # ba_meta require api 9
 # ba_meta export babase.Plugin
 class Singl_buyer(Plugin):
@@ -41,8 +40,10 @@ class Singl_buyer(Plugin):
         s.cooldown = 2.0
         s.enabled = True
         s.anti_recoil = True  
+        
         s.listening_speed = 0.3  
-        s.performance_mode = "normal"  
+        s.performance_mode = "normal" 
+        
         s.waiting_for_purchase = {}
         s.max_prices = APP.config.get('singl_buyer_max_prices', {})
         s.pending_purchase = None
@@ -56,11 +57,11 @@ class Singl_buyer(Plugin):
         s.rejoin_attempts = 0
         s.max_rejoin_attempts = 5
         s.rejoin_timer = None
+        s.plugin_states = APP.config.get('singl_buyer_plugin_states', {})
         
         s.backup_dir = "ba_data/singl_buyer_backups"
         if not os.path.exists(s.backup_dir):
             os.makedirs(s.backup_dir)
-
         s.override_connect_to_party()
         
         teck(10, s.show_welcome_message)
@@ -70,8 +71,337 @@ class Singl_buyer(Plugin):
         s.start_rejoin_check()
 
     def show_welcome_message(s):
-        push("Power by Singl | @Amiry_11228 | t.me/SinglMusic | V:3.0", color=(0, 0.8, 1))
+        push("Power by Singl | @Amiry_11228 | t.me/SinglMusic | V3.0", color=(0, 0.8, 1))
         gs('dingSmall').play()
+    def get_plugin_files(s):
+        plugin_files = []
+        possible_paths = [
+            "ba_data/python/mods",
+            "mods",
+            "../mods",
+            "../../mods",  
+            os.path.join(os.path.expanduser("~"), "AppData", "Local", "BombSquad", "mods"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "mods"),
+        ]
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        possible_paths.append(current_dir)
+        try:
+            user_dir = os.path.expanduser("~")
+            possible_paths.extend([
+                os.path.join(user_dir, "BombSquad", "mods"),
+                os.path.join(user_dir, ".bombsquad", "mods"),
+                os.path.join(user_dir, "AppData", "Roaming", "BombSquad", "mods"),
+            ])
+        except:
+            pass
+        found_mods_dir = None
+        for mod_dir in possible_paths:
+            try:
+                if os.path.exists(mod_dir):
+                    py_files = glob.glob(os.path.join(mod_dir, "*.py"))
+                    if py_files:
+                        found_mods_dir = mod_dir
+                        push(f"Found mods dir: {mod_dir}", color=(0, 1, 0))
+                        break
+            except Exception as e:
+                print(f"Error checking path {mod_dir}: {e}")
+                continue
+        if found_mods_dir:
+            try:
+                py_files = glob.glob(os.path.join(found_mods_dir, "*.py"))
+                for py_file in py_files:
+                    filename = os.path.basename(py_file)
+                    if (filename != "__init__.py" and 
+                        not filename.startswith(".") and 
+                        filename != os.path.basename(__file__)):
+                        plugin_files.append(filename)
+                s.mods_dir = found_mods_dir
+                
+            except Exception as e:
+                print(f"Error reading mods directory: {e}")
+                push(f"Error reading mods: {str(e)}", color=(1, 0, 0))
+        else:
+            default_dir = "ba_data/python/mods"
+            try:
+                if os.path.exists(default_dir):
+                    py_files = glob.glob(os.path.join(default_dir, "*.py"))
+                    for py_file in py_files:
+                        filename = os.path.basename(py_file)
+                        if filename != "__init__.py" and not filename.startswith(".") and filename != os.path.basename(__file__):
+                            plugin_files.append(filename)
+                    s.mods_dir = default_dir
+                else:
+                    os.makedirs(default_dir, exist_ok=True)
+                    s.mods_dir = default_dir
+                    push("Created default mods directory", color=(0, 1, 0))
+            except Exception as e:
+                print(f"Error with default mods directory: {e}")
+        
+        return sorted(plugin_files)
+
+    def toggle_plugin_state(s, plugin_name):
+        s.plugin_states[plugin_name] = not s.plugin_states.get(plugin_name, True)
+        APP.config['singl_buyer_plugin_states'] = s.plugin_states
+        APP.config.commit()
+        
+        status = "DISABLED" if not s.plugin_states[plugin_name] else "ENABLED"
+        color = (1, 0, 0) if not s.plugin_states[plugin_name] else (0, 1, 0)
+        push(f"{plugin_name}: {status}", color=color)
+        
+        if s.plugin_states[plugin_name]:
+            gs('dingSmall').play()
+        else:
+            gs('error').play()
+
+    def delete_plugin(s, plugin_name):
+        if not hasattr(s, 'mods_dir') or not s.mods_dir:
+            push("Mods directory not found", color=(1, 0, 0))
+            return False
+            
+        plugin_path = os.path.join(s.mods_dir, plugin_name)
+        
+        try:
+            if os.path.exists(plugin_path):
+                backup_dir = os.path.join(s.backup_dir, "deleted_plugins")
+                if not os.path.exists(backup_dir):
+                    os.makedirs(backup_dir)
+                
+                backup_path = os.path.join(backup_dir, f"{plugin_name}.backup")
+                with open(plugin_path, 'r', encoding='utf-8', errors='ignore') as source:
+                    with open(backup_path, 'w', encoding='utf-8') as backup:
+                        backup.write(source.read())
+                os.remove(plugin_path)
+                if plugin_name in s.plugin_states:
+                    del s.plugin_states[plugin_name]
+                    APP.config['singl_buyer_plugin_states'] = s.plugin_states
+                    APP.config.commit()
+                
+                push(f"Deleted: {plugin_name}", color=(1, 0.5, 0))
+                gs('gunCocking').play()
+                return True
+            else:
+                push(f"Plugin not found: {plugin_name}", color=(1, 0, 0))
+                return False
+        except Exception as e:
+            push(f"Delete failed: {str(e)}", color=(1, 0, 0))
+            return False
+
+    def show_plugin_manager(s, current_window=None):
+        if current_window:
+            s.close_window(current_window)
+            
+        w = s.create_window(550, 500)
+        
+        tw(
+            parent=w,
+            text='PLUGIN MANAGER',
+            position=(275, 470),
+            h_align='center',
+            scale=1.2,
+            color=(0, 0.8, 1)
+        )
+        mods_path = s.mods_dir if hasattr(s, 'mods_dir') and s.mods_dir else "Not found"
+        tw(
+            parent=w,
+            text=f'Mods Path: {mods_path}',
+            position=(275, 450),
+            h_align='center',
+            scale=0.5,
+            color=(0.8, 0.8, 0.8)
+        )
+        
+        scroll = sw(
+            parent=w,
+            size=(510, 350),
+            position=(20, 90)
+        )
+        
+        plugin_files = s.get_plugin_files()
+        scroll_height = max(350, len(plugin_files) * 60)
+        
+        scroll_content = cw(
+            parent=scroll,
+            size=(490, scroll_height),
+            background=False
+        )
+        
+        if not plugin_files:
+            tw(
+                parent=scroll_content,
+                text='No plugins found in mods folder',
+                position=(235, 175),
+                h_align='center',
+                color=(0.7, 0.7, 0.7)
+            )
+
+            
+            search_paths = [
+                "ba_data/python/mods",
+                "mods", 
+                "../mods",
+                "AppData/Local/BombSquad/mods",
+                "Current directory"
+            ]
+            
+            y_pos = 110
+            for path in search_paths:
+                y_pos -= 15
+        else:
+            y_pos = scroll_height - 40
+            for plugin_file in plugin_files:
+                plugin_bg = cw(
+                    parent=scroll_content,
+                    size=(470, 50),
+                    position=(10, y_pos),
+                    color=(0.25, 0.25, 0.3)
+                )
+                tw(
+                    parent=plugin_bg,
+                    text=plugin_file,
+                    position=(15, 15),
+                    h_align='left',
+                    v_align='center',
+                    scale=0.8,
+                    color=(0.5, 1, 0)
+                )
+                is_enabled = s.plugin_states.get(plugin_file, True)
+                status_color = (0, 0.8, 0) if is_enabled else (0.8, 0, 0)
+                status_text = 'ENABLED' if is_enabled else 'DISABLED'
+                
+                tw(
+                    parent=plugin_bg,
+                    text=status_text,
+                    position=(200, 15),
+                    h_align='left',
+                    v_align='center',
+                    scale=0.7,
+                    color=status_color
+                )
+                toggle_color = (0.8, 0.2, 0.2) if is_enabled else (0.2, 0.8, 0.2)
+                toggle_text = 'DISABLE' if is_enabled else 'ENABLE'
+                
+                bw(
+                    parent=plugin_bg,
+                    position=(300, 5),
+                    size=(70, 40),
+                    label=toggle_text,
+                    color=toggle_color,
+                    textcolor=(1, 1, 1),
+                    scale=0.6,
+                    on_activate_call=CallPartial(s.toggle_plugin_state, plugin_file)
+                )
+                bw(
+                    parent=plugin_bg,
+                    position=(380, 5),
+                    size=(70, 40),
+                    label='DELETE',
+                    color=(0.8, 0.5, 0.2),
+                    textcolor=(1, 1, 1),
+                    scale=0.6,
+                    on_activate_call=CallPartial(s.show_delete_confirmation, plugin_file, w)
+                )
+                
+                y_pos -= 55
+        bw(
+            parent=w,
+            position=(50, 40),
+            size=(150, 35),
+            label='REFRESH LIST',
+            color=(0.3, 0.5, 0.8),
+            textcolor=(1, 1, 1),
+            on_activate_call=CallPartial(s.show_plugin_manager, w)
+        )
+        
+        bw(
+            parent=w,
+            position=(220, 40),
+            size=(150, 35),
+            label='ENABLE ALL',
+            color=(0.2, 0.7, 0.2),
+            textcolor=(1, 1, 1),
+            on_activate_call=CallPartial(s.enable_all_plugins, w)
+        )
+        
+        bw(
+            parent=w,
+            position=(390, 40),
+            size=(150, 35),
+            label='DISABLE ALL',
+            color=(0.7, 0.2, 0.2),
+            textcolor=(1, 1, 1),
+            on_activate_call=CallPartial(s.disable_all_plugins, w)
+        )
+
+    def show_delete_confirmation(s, plugin_name, current_window):
+        w = s.create_window(400, 200)
+        
+        tw(
+            parent=w,
+            text='DELETE CONFIRMATION',
+            position=(170, 170),
+            h_align='center',
+            scale=1.0,
+            color=(1, 0.5, 0)
+        )
+        
+        tw(
+            parent=w,
+            text=f'Delete {plugin_name}?',
+            position=(170, 140),
+            h_align='center',
+            scale=0.8,
+            color=(1, 0, 0)
+        )
+        
+        bw(
+            parent=w,
+            position=(80, 70),
+            size=(120, 35),
+            label='DELETE',
+            color=(0.8, 0.2, 0.2),
+            textcolor=(1, 1, 1),
+            on_activate_call=CallPartial(s.confirm_delete_plugin, plugin_name, w, current_window)
+        )
+        
+        bw(
+            parent=w,
+            position=(220, 70),
+            size=(120, 35),
+            label='CANCEL',
+            color=(0.4, 0.4, 0.4),
+            textcolor=(1, 1, 1),
+            on_activate_call=CallPartial(s.close_window, w)
+        )
+
+    def confirm_delete_plugin(s, plugin_name, confirm_window, manager_window):
+        success = s.delete_plugin(plugin_name)
+        s.close_window(confirm_window)
+        if success:
+            s.show_plugin_manager(manager_window)
+
+    def enable_all_plugins(s, current_window):
+        plugin_files = s.get_plugin_files()
+        for plugin_file in plugin_files:
+            s.plugin_states[plugin_file] = True
+        
+        APP.config['singl_buyer_plugin_states'] = s.plugin_states
+        APP.config.commit()
+        
+        push("All plugins enabled", color=(0, 1, 0))
+        gs('dingSmall').play()
+        s.show_plugin_manager(current_window)
+
+    def disable_all_plugins(s, current_window):
+        plugin_files = s.get_plugin_files()
+        for plugin_file in plugin_files:
+            s.plugin_states[plugin_file] = False
+        
+        APP.config['singl_buyer_plugin_states'] = s.plugin_states
+        APP.config.commit()
+        
+        push("All plugins disabled", color=(1, 0.5, 0))
+        gs('error').play()
+        s.show_plugin_manager(current_window)
 
     def override_connect_to_party(s):
         def custom_connect_to_party(address, port=43210, print_progress=False):
@@ -79,7 +409,6 @@ class Singl_buyer(Plugin):
             return original_connect_to_party(address, port, print_progress)
         import bascenev1 as bs
         bs.connect_to_party = custom_connect_to_party
-
     def start_rejoin_check(s):
         def _check_connection():
             try:
@@ -129,7 +458,7 @@ class Singl_buyer(Plugin):
 
     def manual_rejoin(s):
         if s.rejoin_address and s.rejoin_port:
-            s.rejoin_attempts = 0  
+            s.rejoin_attempts = 0 
             s.attempt_rejoin()
         else:
             push("No server info available", color=(1, 0, 0))
@@ -137,7 +466,7 @@ class Singl_buyer(Plugin):
     def store_server_info(s, address, port=43210):
         s.rejoin_address = address
         s.rejoin_port = port
-        s.rejoin_attempts = 0  
+        s.rejoin_attempts = 0 
         push(f"Server info stored: {address}:{port}", color=(0, 1, 0))
         s.update_rejoin_ui()
 
@@ -163,7 +492,6 @@ class Singl_buyer(Plugin):
                 bw(s.rejoin_ui_button, color=button_color)
             except:
                 pass
-        
         if hasattr(s, 'rejoin_main_button'):
             try:
                 status_color = (0, 0.8, 0) if s.rejoin_enabled else (0.8, 0, 0)
@@ -171,7 +499,6 @@ class Singl_buyer(Plugin):
                 bw(s.rejoin_main_button, label=status_text, color=status_color)
             except:
                 pass
-        
         if hasattr(s, 'rejoin_status_button'):
             try:
                 status_color = (0, 0.8, 0) if s.rejoin_enabled else (0.8, 0, 0)
@@ -189,7 +516,7 @@ class Singl_buyer(Plugin):
         tw(
             parent=w,
             text='REJOIN SYSTEM',
-            position=(200, 270),
+            position=(170, 270),
             h_align='center',
             scale=1.1,
             color=(0, 0.8, 1)
@@ -204,7 +531,7 @@ class Singl_buyer(Plugin):
             label=status_text,
             color=status_color,
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.toggle_auto_rejoin_from_panel, w)
+            on_activate_call=CallPartial(s.toggle_auto_rejoin_from_panel, w)
         )
         bw(
             parent=w,
@@ -213,13 +540,13 @@ class Singl_buyer(Plugin):
             label='MANUAL REJOIN',
             color=(0.1, 0.6, 0.1),
             textcolor=(1, 1, 1),
-            on_activate_call=s.manual_rejoin
+            on_activate_call=CallStrict(s.manual_rejoin)
         )
         server_info = f"Server: {s.rejoin_address}:{s.rejoin_port}" if s.rejoin_address else "No server info - Join a server first"
         tw(
             parent=w,
             text=server_info,
-            position=(200, 130),
+            position=(170, 130),
             h_align='center',
             scale=0.7,
             color=(0.8, 0.8, 0.8)
@@ -228,7 +555,7 @@ class Singl_buyer(Plugin):
         tw(
             parent=w,
             text=attempts_info,
-            position=(200, 110),
+            position=(170, 110),
             h_align='center',
             scale=0.6,
             color=(0.7, 0.7, 1)
@@ -238,20 +565,20 @@ class Singl_buyer(Plugin):
         tw(
             parent=w,
             text=f"Status: {connection_status}",
-            position=(200, 90),
+            position=(170, 90),
             h_align='center',
-            scale=0.6,
+            scale=0.8,
             color=connection_color
         )
         bw(
             parent=w,
-            position=(120, 50),
-            size=(160, 30),
+            position=(135, 50),
+            size=(160, 60),
             label='ADVANCED SETTINGS',
-            color=(0.4, 0.4, 0.6),
+            color=(0.4, 0.9, 0.6),
             textcolor=(1, 1, 1),
             scale=0.8,
-            on_activate_call=Call(s.show_rejoin_settings, w)
+            on_activate_call=CallPartial(s.show_rejoin_settings, w)
         )
 
     def toggle_auto_rejoin_from_panel(s, current_window):
@@ -267,7 +594,7 @@ class Singl_buyer(Plugin):
         tw(
             parent=w,
             text='REJOIN SETTINGS',
-            position=(175, 220),
+            position=(170, 220),
             h_align='center',
             scale=1.0,
             color=(0, 0.8, 1)
@@ -282,24 +609,24 @@ class Singl_buyer(Plugin):
         
         bw(
             parent=w,
-            position=(200, 175),
+            position=(200, 185),
             size=(30, 25),
             label='-',
             color=(0.8, 0.2, 0.2),
             textcolor=(1, 1, 1),
             scale=0.7,
-            on_activate_call=Call(s.adjust_max_attempts, -1, w)
+            on_activate_call=CallPartial(s.adjust_max_attempts, -1, w)
         )
         
         bw(
             parent=w,
-            position=(240, 175),
+            position=(240, 185),
             size=(30, 25),
             label='+',
             color=(0.2, 0.8, 0.2),
             textcolor=(1, 1, 1),
             scale=0.7,
-            on_activate_call=Call(s.adjust_max_attempts, 1, w)
+            on_activate_call=CallPartial(s.adjust_max_attempts, 1, w)
         )
         tw(
             parent=w,
@@ -311,34 +638,34 @@ class Singl_buyer(Plugin):
         
         bw(
             parent=w,
-            position=(200, 135),
+            position=(200, 140),
             size=(30, 25),
             label='-',
             color=(0.8, 0.2, 0.2),
             textcolor=(1, 1, 1),
             scale=0.7,
-            on_activate_call=Call(s.adjust_cooldown, -5, w)
+            on_activate_call=CallPartial(s.adjust_cooldown, -5, w)
         )
         
         bw(
             parent=w,
-            position=(240, 135),
+            position=(240, 140),
             size=(30, 25),
             label='+',
             color=(0.2, 0.8, 0.2),
             textcolor=(1, 1, 1),
             scale=0.7,
-            on_activate_call=Call(s.adjust_cooldown, 5, w)
+            on_activate_call=CallPartial(s.adjust_cooldown, 5, w)
         )
         bw(
             parent=w,
             position=(100, 80),
-            size=(150, 30),
+            size=(150,50),
             label='RESET STATISTICS',
-            color=(0.8, 0.5, 0.2),
+            color=(1, 0.1, 0.2),
             textcolor=(1, 1, 1),
-            scale=0.7,
-            on_activate_call=Call(s.reset_rejoin_stats, w)
+            scale=1,
+            on_activate_call=CallPartial(s.reset_rejoin_stats, w)
         )
 
     def adjust_max_attempts(s, change, current_window):
@@ -369,7 +696,7 @@ class Singl_buyer(Plugin):
                 position=(self._width - 500, self._height - 70),
                 size=(40, 40),
                 color=button_color,
-                on_activate_call=Call(s.show_main_panel)
+                on_activate_call=CallStrict(s.show_main_panel)
             )
             s.ui_button = button
             rejoin_button = bw(
@@ -378,7 +705,7 @@ class Singl_buyer(Plugin):
                 position=(self._width - 500, self._height - 120),
                 size=(40, 40),
                 color=(0.1, 0.6, 0.1),
-                on_activate_call=Call(s.manual_rejoin)
+                on_activate_call=CallStrict(s.manual_rejoin)
             )
             s.rejoin_ui_button = rejoin_button
             
@@ -406,9 +733,9 @@ class Singl_buyer(Plugin):
         )
        
         if is_main:
-            cw(w, on_outside_click_call=Call(s.close_window, w))
+            cw(w, on_outside_click_call=CallPartial(s.close_window, w))
         else:
-            cw(w, on_outside_click_call=Call(s.close_and_return_to_main, w))
+            cw(w, on_outside_click_call=CallPartial(s.close_and_return_to_main, w))
             
         return w
 
@@ -434,8 +761,8 @@ class Singl_buyer(Plugin):
         
         tw(
             parent=w,
-            text='SINGL BUYER + REJOINER',
-            position=(250, 420),
+            text='SINGL MOD',
+            position=(235, 420),
             h_align='center',
             scale=1.3,
             color=(0, 0.8, 1)
@@ -443,7 +770,7 @@ class Singl_buyer(Plugin):
         
         tw(
             parent=w,
-            text='Auto Buy System + Rejoin System',
+            text='Auto Buy System + Rejoin System + Plugin Manager',
             position=(250, 395),
             h_align='center',
             scale=0.7,
@@ -455,12 +782,12 @@ class Singl_buyer(Plugin):
         
         s.status_button = bw(
             parent=w,
-            position=(190, 360),
-            size=(100, 35),
+            position=(345, 350),
+            size=(150, 35),
             label=status_text,
             color=status_color,
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.toggle_plugin_from_panel, w)
+            on_activate_call=CallPartial(s.toggle_plugin_from_panel, w)
         )
         
         anti_recoil_color = (0.6, 0.2, 0.8) if s.anti_recoil else (0.4, 0.4, 0.4)
@@ -468,25 +795,24 @@ class Singl_buyer(Plugin):
         
         s.anti_recoil_button = bw(
             parent=w,
-            position=(165, 310),
+            position=(10, 350),
             size=(150, 35),
             label=anti_recoil_text,
             color=anti_recoil_color,
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.toggle_anti_recoil_from_panel, w
-            ))
+            on_activate_call=CallPartial(s.toggle_anti_recoil_from_panel, w)
+        )
         rejoin_status_color = (0, 0.8, 0) if s.rejoin_enabled else (0.8, 0, 0)
         rejoin_status_text = 'REJOIN: ON' if s.rejoin_enabled else 'REJOIN: OFF'
-            
         
         s.rejoin_main_button = bw(
             parent=w,
-            position=(325, 360),
+            position=(200, 350),
             size=(100, 35),
             label=rejoin_status_text,
             color=rejoin_status_color,
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.show_rejoin_panel, w)
+            on_activate_call=CallPartial(s.show_rejoin_panel, w)
         )
 
         normal_color = (0.3, 0.6, 1.0) if s.performance_mode == "normal" else (0.4, 0.4, 0.4)
@@ -494,30 +820,29 @@ class Singl_buyer(Plugin):
 
         s.normal_button = bw(
             parent=w,
-            position=(100, 260),
+            position=(100, 300),
             size=(130, 35),
             label='NORMAL MODE',
             color=normal_color,
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.set_normal_mode_from_panel, w)
+            on_activate_call=CallPartial(s.set_normal_mode_from_panel, w)
         )
 
         s.performance_button = bw(
             parent=w,
-            position=(250, 260),
+            position=(250, 300),
             size=(130, 35),
             label='BEST PERFORMANCE',
             color=performance_color,
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.set_best_performance_from_panel, w)
+            on_activate_call=CallPartial(s.set_best_performance_from_panel, w)
         )
-        
         buttons = [
-            ('Item Settings', Call(s.show_item_settings, w), (165, 210)),
-            ('Rejoin System', Call(s.show_rejoin_panel, w), (165, 160)),
-            ('Backup & Restore', Call(s.show_backup_restore, w), (165, 110)),
-            ('Support', s.open_support, (320, 60)),
-            ('Channel', s.open_channel, (30, 60)),
+            ('Item Settings', CallPartial(s.show_item_settings, w), (165, 250)),
+            ('Plugin Manager', CallPartial(s.show_plugin_manager, w), (165, 200)), 
+            ('Backup & Restore', CallPartial(s.show_backup_restore, w), (165, 150)),
+            ('Support', CallStrict(s.open_support), (320, 90)),
+            ('Channel', CallStrict(s.open_channel), (30, 90)),
         ]
         
         for label, callback, pos in buttons:
@@ -532,10 +857,19 @@ class Singl_buyer(Plugin):
         tw(
             parent=w,
             text=f'Items Configured: {len(s.max_prices)}',
-            position=(100, 40),
+            position=(100, 60),
             h_align='center',
             scale=0.8,
             color=(0.4, 0.7, 1)
+        )
+
+        tw(
+            parent=w,
+            text=f'Plugins Found: {len(s.get_plugin_files())}',
+            position=(100, 40),
+            h_align='center',
+            scale=0.8,
+            color=(0.7, 0.4, 1)
         )
         status_info = []
         if not s.enabled:
@@ -564,22 +898,12 @@ class Singl_buyer(Plugin):
         
         tw(
             parent=w,
-            text=f'Listening Speed: {s.listening_speed}s',
-            position=(105, 5),
-            h_align='center',
-            scale=0.5,
-            color=(0.8, 0.8, 0.5)
-        )
-        
-        tw(
-            parent=w,
             text='Power by Singl | @Amiry_11228',
-            position=(250, -15),
+            position=(250, -20),
             h_align='center',
             scale=0.5,
             color=(0.8, 0.8, 0.5)
         )
-
     def set_normal_mode_from_panel(s, current_window):
         if s.performance_mode != "normal":
             s.set_normal_mode()
@@ -638,7 +962,7 @@ class Singl_buyer(Plugin):
             label='YES',
             color=(0.2, 0.8, 0.2),
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.set_best_performance, w)
+            on_activate_call=CallPartial(s.set_best_performance, w)
         )
         
         bw(
@@ -648,7 +972,7 @@ class Singl_buyer(Plugin):
             label='NO',
             color=(0.8, 0.2, 0.2),
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.close_window, w)
+            on_activate_call=CallPartial(s.close_window, w)
         )
 
     def set_best_performance(s, window=None):
@@ -802,7 +1126,7 @@ class Singl_buyer(Plugin):
             label=status_text,
             color=status_color,
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.toggle_plugin_from_settings, w)
+            on_activate_call=CallPartial(s.toggle_plugin_from_settings, w)
         )
         
         tw(
@@ -824,7 +1148,7 @@ class Singl_buyer(Plugin):
             label=anti_recoil_text,
             color=anti_recoil_color,
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.toggle_anti_recoil_from_settings, w)
+            on_activate_call=CallPartial(s.toggle_anti_recoil_from_settings, w)
         )
         
         tw(
@@ -905,7 +1229,7 @@ class Singl_buyer(Plugin):
                     color=(0.8, 0.2, 0.2),
                     textcolor=(1, 1, 1),
                     scale=0.6,
-                    on_activate_call=Call(s.delete_item, item, w)
+                    on_activate_call=CallPartial(s.delete_item, item, w)
                 )
                 
                 y_pos -= 40
@@ -917,7 +1241,7 @@ class Singl_buyer(Plugin):
             label='ADD NEW ITEM',
             color=(0.2, 0.7, 0.2),
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.show_add_item_dialog, w)
+            on_activate_call=CallPartial(s.show_add_item_dialog, w)
         )
     
     def toggle_plugin_from_settings(s, current_window):
@@ -986,7 +1310,7 @@ class Singl_buyer(Plugin):
             label='SAVE',
             color=(0.2, 0.7, 0.2),
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.save_item, item_text, price_text, w, parent_window)
+            on_activate_call=CallPartial(s.save_item, item_text, price_text, w, parent_window)
         )
         
         bw(
@@ -996,7 +1320,7 @@ class Singl_buyer(Plugin):
             label='CANCEL',
             color=(0.7, 0.2, 0.2),
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.close_window, w)
+            on_activate_call=CallPartial(s.close_window, w)
         )
     
     def save_item(s, item_text, price_text, window, parent_window=None):
@@ -1061,7 +1385,7 @@ class Singl_buyer(Plugin):
             label='CREATE BACKUP',
             color=(0.2, 0.5, 0.8),
             textcolor=(1, 1, 1),
-            on_activate_call=s.create_backup
+            on_activate_call=CallStrict(s.create_backup)
         )
         
         bw(
@@ -1071,7 +1395,7 @@ class Singl_buyer(Plugin):
             label='RESTORE FROM BACKUP',
             color=(0.8, 0.5, 0.2),
             textcolor=(1, 1, 1),
-            on_activate_call=s.show_restore_list
+            on_activate_call=CallStrict(s.show_restore_list)
         )
         
         bw(
@@ -1081,7 +1405,7 @@ class Singl_buyer(Plugin):
             label='RESET ALL SETTINGS',
             color=(0.8, 0.2, 0.2),
             textcolor=(1, 1, 1),
-            on_activate_call=s.show_reset_confirmation
+            on_activate_call=CallStrict(s.show_reset_confirmation)
         )
         
         tw(
@@ -1234,7 +1558,7 @@ class Singl_buyer(Plugin):
                     color=(0.2, 0.7, 0.2),
                     textcolor=(1, 1, 1),
                     scale=0.6,
-                    on_activate_call=Call(s.restore_backup, backup_file)
+                    on_activate_call=CallPartial(s.restore_backup, backup_file)
                 )
                 
                 y_pos -= 45
@@ -1313,7 +1637,7 @@ class Singl_buyer(Plugin):
             label='RESET',
             color=(0.8, 0.2, 0.2),
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.reset_settings, w)
+            on_activate_call=CallPartial(s.reset_settings, w)
         )
         
         bw(
@@ -1323,7 +1647,7 @@ class Singl_buyer(Plugin):
             label='CANCEL',
             color=(0.4, 0.4, 0.4),
             textcolor=(1, 1, 1),
-            on_activate_call=Call(s.close_window, w)
+            on_activate_call=CallPartial(s.close_window, w)
         )
     
     def reset_settings(s, window):
