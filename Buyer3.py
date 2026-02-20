@@ -1,4 +1,4 @@
-# Singl_buyer V 2.0 + Rejoiner + Plugin Manager + Max Total Price
+# Nem_buyer V 2.0 + Rejoiner + Plugin Manager + Max Total Price
 # Copyright 2025
 from babase import Plugin, open_url
 from bauiv1 import (
@@ -32,7 +32,7 @@ from datetime import datetime
 
 # ba_meta require api 9
 # ba_meta export babase.Plugin
-class Singl_buyer(Plugin):
+class Nem_buyer(Plugin):
     
     def __init__(s):
         s.z = []
@@ -45,8 +45,8 @@ class Singl_buyer(Plugin):
         s.performance_mode = "normal" 
         
         s.waiting_for_purchase = {}
-        s.max_prices = APP.config.get('singl_buyer_max_prices', {})
-        s.max_total_price = APP.config.get('singl_buyer_max_total_price', None)  
+        s.max_prices = APP.config.get('Nem_buyer_max_prices', {})
+        s.max_total_price = APP.config.get('Nem_buyer_max_total_price', None)  
         s.pending_purchase = None
         s.current_settings_window = None  
         s.current_main_window = None  
@@ -58,9 +58,9 @@ class Singl_buyer(Plugin):
         s.rejoin_attempts = 0
         s.max_rejoin_attempts = 5
         s.rejoin_timer = None
-        s.plugin_states = APP.config.get('singl_buyer_plugin_states', {})
+        s.plugin_states = APP.config.get('Nem_buyer_plugin_states', {})
         
-        s.backup_dir = "ba_data/singl_buyer_backups"
+        s.backup_dir = "ba_data/Nem_buyer_backups"
         if not os.path.exists(s.backup_dir):
             os.makedirs(s.backup_dir)
         s.override_connect_to_party()
@@ -72,7 +72,7 @@ class Singl_buyer(Plugin):
         s.start_rejoin_check()
 
     def show_welcome_message(s):
-        push("Power by Singl | @Amiry_11228 | t.me/SinglMusic | V3.0", color=(0, 0.8, 1))
+        push("Power by Nem | @Amiry_11228 | t.me/NemMusic | V3.0", color=(0, 0.8, 1))
         gs('dingSmall').play()
     
     def get_plugin_files(s):
@@ -143,7 +143,7 @@ class Singl_buyer(Plugin):
 
     def toggle_plugin_state(s, plugin_name):
         s.plugin_states[plugin_name] = not s.plugin_states.get(plugin_name, True)
-        APP.config['singl_buyer_plugin_states'] = s.plugin_states
+        APP.config['Nem_buyer_plugin_states'] = s.plugin_states
         APP.config.commit()
         
         status = "DISABLED" if not s.plugin_states[plugin_name] else "ENABLED"
@@ -175,7 +175,7 @@ class Singl_buyer(Plugin):
                 os.remove(plugin_path)
                 if plugin_name in s.plugin_states:
                     del s.plugin_states[plugin_name]
-                    APP.config['singl_buyer_plugin_states'] = s.plugin_states
+                    APP.config['Nem_buyer_plugin_states'] = s.plugin_states
                     APP.config.commit()
                 
                 push(f"Deleted: {plugin_name}", color=(1, 0.5, 0))
@@ -373,7 +373,7 @@ class Singl_buyer(Plugin):
         for plugin_file in plugin_files:
             s.plugin_states[plugin_file] = True
         
-        APP.config['singl_buyer_plugin_states'] = s.plugin_states
+        APP.config['Nem_buyer_plugin_states'] = s.plugin_states
         APP.config.commit()
         
         push("All plugins enabled", color=(0, 1, 0))
@@ -385,7 +385,7 @@ class Singl_buyer(Plugin):
         for plugin_file in plugin_files:
             s.plugin_states[plugin_file] = False
         
-        APP.config['singl_buyer_plugin_states'] = s.plugin_states
+        APP.config['Nem_buyer_plugin_states'] = s.plugin_states
         APP.config.commit()
         
         push("All plugins disabled", color=(1, 0.5, 0))
@@ -751,7 +751,7 @@ class Singl_buyer(Plugin):
         
         tw(
             parent=w,
-            text='SINGL MOD',
+            text='Nem MOD',
             position=(235, 420),
             h_align='center',
             scale=1.3,
@@ -901,7 +901,7 @@ class Singl_buyer(Plugin):
         
         tw(
             parent=w,
-            text='Power by Singl | @Amiry_11228',
+            text='Power by Nem | @Amiry_11228',
             position=(250, -20),
             h_align='center',
             scale=0.5,
@@ -1056,13 +1056,13 @@ class Singl_buyer(Plugin):
         s.enabled = not s.enabled
         status = "ON" if s.enabled else "OFF"
         color = (0, 1, 0) if s.enabled else (1, 0, 0)
-        push(f"Singl_buyer: {status}", color=color)
+        push(f"Nem_buyer: {status}", color=color)
         gs('dingSmall' if s.enabled else 'error').play()
 
         if s.enabled:
-            s.announce_status("Singl Buyer ON (:")
+            s.announce_status("Nem Buyer ON (:")
         else:
-            s.announce_status("Singl Buyer OFF ):")
+            s.announce_status("Nem Buyer OFF ):")
         
         s.update_main_button()
         
@@ -1093,7 +1093,7 @@ class Singl_buyer(Plugin):
     
     def announce_status(s, message):
         try:
-            CM(f"Singl Buyer: {message}")
+            CM(f"Nem Buyer: {message}")
         except:
             pass
     
@@ -1341,7 +1341,7 @@ class Singl_buyer(Plugin):
                     raise ValueError("Price must be positive")
                 s.max_total_price = price
 
-            APP.config['singl_buyer_max_total_price'] = s.max_total_price
+            APP.config['Nem_buyer_max_total_price'] = s.max_total_price
             APP.config.commit()
 
             push(f"Max total price set to: {s.max_total_price}", color=(0,1,0))
@@ -1355,7 +1355,7 @@ class Singl_buyer(Plugin):
     
     def clear_max_total_price(s, window):
         s.max_total_price = None
-        APP.config['singl_buyer_max_total_price'] = s.max_total_price
+        APP.config['Nem_buyer_max_total_price'] = s.max_total_price
         APP.config.commit()
 
         push("Max total price cleared", color=(0,1,0))
@@ -1458,7 +1458,7 @@ class Singl_buyer(Plugin):
             return
         
         s.max_prices[item_name] = max_price
-        APP.config['singl_buyer_max_prices'] = s.max_prices
+        APP.config['Nem_buyer_max_prices'] = s.max_prices
         APP.config.commit()
         
         push(f'Added: {item_name} - max {max_price}', color=(0,1,0))
@@ -1473,7 +1473,7 @@ class Singl_buyer(Plugin):
     def delete_item(s, item, parent_window=None):
         if item in s.max_prices:
             del s.max_prices[item]
-            APP.config['singl_buyer_max_prices'] = s.max_prices
+            APP.config['Nem_buyer_max_prices'] = s.max_prices
             APP.config.commit()
             push(f'Deleted: {item}', color=(0,1,0))
             gs('gunCocking').play()
@@ -1585,7 +1585,7 @@ class Singl_buyer(Plugin):
     def create_backup(s):
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"singl_buyer_backup_{timestamp}.json"
+            filename = f"Nem_buyer_backup_{timestamp}.json"
             filepath = os.path.join(s.backup_dir, filename)
             
             backup_data = {
@@ -1693,8 +1693,8 @@ class Singl_buyer(Plugin):
             
             s.max_prices = backup_data.get('max_prices', {})
             s.max_total_price = backup_data.get('max_total_price', None)              
-            APP.config['singl_buyer_max_prices'] = s.max_prices
-            APP.config['singl_buyer_max_total_price'] = s.max_total_price
+            APP.config['Nem_buyer_max_prices'] = s.max_prices
+            APP.config['Nem_buyer_max_total_price'] = s.max_total_price
             APP.config.commit()
             
             push(f"Settings restored from: {filename}", color=(0, 1, 0))
@@ -1777,8 +1777,8 @@ class Singl_buyer(Plugin):
         s.max_prices = {}
         s.max_total_price = None  
         
-        APP.config['singl_buyer_max_prices'] = s.max_prices
-        APP.config['singl_buyer_max_total_price'] = s.max_total_price
+        APP.config['Nem_buyer_max_prices'] = s.max_prices
+        APP.config['Nem_buyer_max_total_price'] = s.max_total_price
         APP.config.commit()
         
         s.close_window(window)
@@ -1792,7 +1792,7 @@ class Singl_buyer(Plugin):
         push('Opening Support...', color=(0, 1, 1))
     
     def open_channel(s):
-        open_url('https://t.me/SinglMod')
+        open_url('https://t.me/NemMod')
         push('Opening Channel...', color=(0, 1, 1))
     
     def ear(s):
@@ -1847,7 +1847,7 @@ class Singl_buyer(Plugin):
                 push(f"قیمت کل بیشتر از حداکثر مجاز است: {price} > {s.max_total_price}", color=(1, 1, 0))
                 gs('error').play()
                 if s.anti_recoil:
-                    CM('Cancel | Singl_buyer')
+                    CM('Cancel | Nem_buyer')
                 s.pending_purchase = False
                 return
             
@@ -1870,7 +1870,7 @@ class Singl_buyer(Plugin):
                     gs('cashRegister').play()
                 else:
                     if s.anti_recoil:
-                        CM('Cancel | Singl_buyer')
+                        CM('Cancel | Nem_buyer')
                         push(f"Cancelled: {item_base} at {int(price_per_item)} > {max_price_value}", color=(1,0.5,0))
                         gs('error').play()
                     else:
